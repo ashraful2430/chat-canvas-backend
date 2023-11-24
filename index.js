@@ -26,6 +26,19 @@ async function run() {
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
 
+    const userCollection = client.db("forumDb").collection("users");
+
+    //   user related api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existedUser = await userCollection.findOne(query);
+      if (existedUser) {
+        return res.send({ message: "user already existed", insertedId: null });
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
