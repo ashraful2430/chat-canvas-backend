@@ -27,9 +27,16 @@ async function run() {
     // await client.db("admin").command({ ping: 1 });
 
     const userCollection = client.db("forumDb").collection("users");
+    const postCollection = client.db("forumDb").collection("posts");
+
+    // post related api
+    app.post("/posts", async (req, res) => {
+      const posts = req.body;
+      const result = await postCollection.insertOne(posts);
+      res.send(result);
+    });
 
     //   user related api
-
     app.get("/users", async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -51,6 +58,8 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+    // connected to mongodb
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
