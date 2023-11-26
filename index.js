@@ -32,8 +32,20 @@ async function run() {
     // post related api
 
     app.get("/posts/all", async (req, res) => {
-      const result = await postCollection.find().sort({ date: -1 }).toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+      const result = await postCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .sort({ date: -1 })
+        .toArray();
       res.send(result);
+    });
+
+    app.get("/postCount", async (req, res) => {
+      const count = await postCollection.estimatedDocumentCount();
+      res.send({ count });
     });
 
     app.get("/posts/all/:id", async (req, res) => {
