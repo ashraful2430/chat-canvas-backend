@@ -30,6 +30,12 @@ async function run() {
     const postCollection = client.db("forumDb").collection("posts");
 
     // post related api
+
+    app.get("/posts", async (req, res) => {
+      const result = await postCollection.find().sort({ date: -1 }).toArray();
+      res.send(result);
+    });
+
     app.post("/posts", async (req, res) => {
       const posts = req.body;
       const result = await postCollection.insertOne(posts);
