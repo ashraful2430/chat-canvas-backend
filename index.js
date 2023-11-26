@@ -31,8 +31,15 @@ async function run() {
 
     // post related api
 
-    app.get("/posts", async (req, res) => {
+    app.get("/posts/all", async (req, res) => {
       const result = await postCollection.find().sort({ date: -1 }).toArray();
+      res.send(result);
+    });
+
+    app.get("/posts", async (req, res) => {
+      const authorEmail = req.query.email;
+      const query = { authorEmail: authorEmail };
+      const result = await postCollection.find(query).toArray();
       res.send(result);
     });
 
