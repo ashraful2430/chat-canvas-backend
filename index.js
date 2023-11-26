@@ -36,10 +36,21 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/posts", async (req, res) => {
+    app.get("/posts/byUser", async (req, res) => {
       const authorEmail = req.query.email;
       const query = { authorEmail: authorEmail };
       const result = await postCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/posts/limit", async (req, res) => {
+      const authorEmail = req.query.email;
+      const query = { authorEmail: authorEmail };
+      const result = await postCollection
+        .find(query)
+        .sort({ date: -1 })
+        .limit(3)
+        .toArray();
       res.send(result);
     });
 
