@@ -34,8 +34,10 @@ async function run() {
     app.get("/posts/all", async (req, res) => {
       const page = parseInt(req.query.page);
       const size = parseInt(req.query.size);
+      const filter = req.query;
+      const query = { tag: { $regex: filter.search, $options: "i" } };
       const result = await postCollection
-        .find()
+        .find(query)
         .skip(page * size)
         .limit(size)
         .sort({ date: -1 })
