@@ -43,6 +43,30 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/count/:email", async (req, res) => {
+      const authorEmail = req.params.email;
+
+      const result = await postCollection
+        .aggregate([
+          {
+            $match: { authorEmail: authorEmail },
+          },
+          {
+            $group: {
+              _id: "$authorEmail",
+              postCount: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray();
+
+      if (result.length > 0) {
+        res.send({ postCount: result[0].postCount });
+      } else {
+        res.send({ postCount: 0 });
+      }
+    });
+
     app.get("/posts/limit", async (req, res) => {
       const authorEmail = req.query.email;
       const query = { authorEmail: authorEmail };
