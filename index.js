@@ -69,14 +69,45 @@ async function run() {
       const page = parseInt(req.query.page);
       const size = parseInt(req.query.size);
       const filter = req.query;
+      const sortBy = req.query.sortBy;
       const query = { tag: { $regex: filter.search, $options: "i" } };
-      let newData = [];
+
+      let aggregationPipeline = [];
+
+      if (sortBy === "popularity") {
+        aggregationPipeline.push(
+          {
+            $addFields: {
+              voteDifference: { $subtract: ["$upVote", "$downVote"] },
+            },
+          },
+          {
+            $sort: { voteDifference: -1 },
+          }
+        );
+      } else {
+        aggregationPipeline.push({
+          $sort: { date: -1 },
+        });
+      }
+
+      aggregationPipeline.push(
+        {
+          $match: query,
+        },
+        {
+          $skip: page * size,
+        },
+        {
+          $limit: size,
+        }
+      );
+
       const result = await postCollection
-        .find(query)
-        .skip(page * size)
-        .limit(size)
-        .sort({ date: -1 })
+        .aggregate(aggregationPipeline)
         .toArray();
+
+      let newData = [];
 
       for (const post of result) {
         const commentId = post._id.toString();
@@ -86,6 +117,7 @@ async function run() {
         const data = { ...post, commentCount };
         newData.push(data);
       }
+
       res.send(newData);
     });
 
