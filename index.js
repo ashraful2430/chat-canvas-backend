@@ -28,6 +28,26 @@ async function run() {
 
     const userCollection = client.db("forumDb").collection("users");
     const postCollection = client.db("forumDb").collection("posts");
+    const commentCollection = client.db("forumDb").collection("comments");
+
+    // comment related api
+
+    app.get("/comments", async (req, res) => {
+      const result = await commentCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/comments/:postId", async (req, res) => {
+      const postId = req.params.postId;
+      const result = await commentCollection.find({ postId }).toArray();
+      res.send(result);
+    });
+
+    app.post("/comments", async (req, res) => {
+      const comment = req.body;
+      const result = await commentCollection.insertOne(comment);
+      res.send(result);
+    });
 
     // post related api
 
