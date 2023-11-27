@@ -29,6 +29,14 @@ async function run() {
     const userCollection = client.db("forumDb").collection("users");
     const postCollection = client.db("forumDb").collection("posts");
     const commentCollection = client.db("forumDb").collection("comments");
+    const reportCollection = client.db("forumDb").collection("reports");
+
+    // report comments related api
+    app.post("/report", async (req, res) => {
+      const report = req.body;
+      const result = await reportCollection.insertOne(report);
+      res.send(result);
+    });
 
     // comment related api
 
@@ -84,6 +92,27 @@ async function run() {
     app.get("/postCount", async (req, res) => {
       const count = await postCollection.estimatedDocumentCount();
       res.send({ count });
+    });
+
+    app.patch("/posts/upvote/:id", async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const update = {
+        $inc: { upVote: 1 },
+      };
+      const result = await postCollection.updateOne(filter, update);
+      res.send(result);
+    });
+    app.patch("/posts/downvote/:id", async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const update = {
+        $inc: { downVote: 1 },
+      };
+      const result = await postCollection.updateOne(filter, update);
+      res.send(result);
     });
 
     app.get("/posts/all/:id", async (req, res) => {
