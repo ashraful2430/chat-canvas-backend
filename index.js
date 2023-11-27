@@ -43,6 +43,12 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/comments/count/:postId", async (req, res) => {
+      const postId = req.params.postId;
+      const commentCount = await commentCollection.countDocuments({ postId });
+      res.send({ count: commentCount });
+    });
+
     app.post("/comments", async (req, res) => {
       const comment = req.body;
       const result = await commentCollection.insertOne(comment);
@@ -56,13 +62,23 @@ async function run() {
       const size = parseInt(req.query.size);
       const filter = req.query;
       const query = { tag: { $regex: filter.search, $options: "i" } };
+      let newData = [];
       const result = await postCollection
         .find(query)
         .skip(page * size)
         .limit(size)
         .sort({ date: -1 })
         .toArray();
-      res.send(result);
+
+      for (const post of result) {
+        const commentId = post._id.toString();
+        const commentCount = await commentCollection.countDocuments({
+          postId: commentId,
+        });
+        const data = { ...post, commentCount };
+        newData.push(data);
+      }
+      res.send(newData);
     });
 
     app.get("/postCount", async (req, res) => {
