@@ -1,6 +1,7 @@
 const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -31,11 +32,60 @@ async function run() {
     const commentCollection = client.db("forumDb").collection("comments");
     const reportCollection = client.db("forumDb").collection("reports");
 
+    // middleware verify token
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "forbidden access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_SECRET_TOKEN, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "Forbidden access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    // verify admin api
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
+    // forum stat related api
+    app.get("/forum-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const postCount = await postCollection.estimatedDocumentCount();
+      const userCount = await userCollection.estimatedDocumentCount();
+      const commentCount = await commentCollection.estimatedDocumentCount();
+
+      res.send({
+        postCount,
+        userCount,
+        commentCount,
+      });
+    });
+
     // report comments related api
-    app.post("/report", async (req, res) => {
+    app.post("/report", verifyToken, async (req, res) => {
       const report = req.body;
       const result = await reportCollection.insertOne(report);
       res.send(result);
+    });
+
+    // jwt related api
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_SECRET_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
     });
 
     // comment related api
@@ -57,7 +107,7 @@ async function run() {
       res.send({ count: commentCount });
     });
 
-    app.post("/comments", async (req, res) => {
+    app.post("/comments", verifyToken, async (req, res) => {
       const comment = req.body;
       const result = await commentCollection.insertOne(comment);
       res.send(result);
@@ -126,7 +176,7 @@ async function run() {
       res.send({ count });
     });
 
-    app.patch("/posts/upvote/:id", async (req, res) => {
+    app.patch("/posts/upvote/:id", verifyToken, async (req, res) => {
       const item = req.body;
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -136,7 +186,7 @@ async function run() {
       const result = await postCollection.updateOne(filter, update);
       res.send(result);
     });
-    app.patch("/posts/downvote/:id", async (req, res) => {
+    app.patch("/posts/downvote/:id", verifyToken, async (req, res) => {
       const item = req.body;
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -196,13 +246,13 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/posts", async (req, res) => {
+    app.post("/posts", verifyToken, async (req, res) => {
       const posts = req.body;
       const result = await postCollection.insertOne(posts);
       res.send(result);
     });
 
-    app.delete("/posts/:id", async (req, res) => {
+    app.delete("/posts/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await postCollection.deleteOne(query);
@@ -210,24 +260,48 @@ async function run() {
     });
 
     //   user related api
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
 
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+    app.get(
+      "/users/admin/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        if (email !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
+        }
+        const query = { email: email };
+        const user = await userCollection.findOne(query);
+        let admin = false;
+        if (user) {
+          admin = user?.role === "admin";
+        }
+        res.send({ admin });
+      }
+    );
 
-    app.get("/users/:email", async (req, res) => {
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
+
+    app.get("/users/:email", verifyToken, verifyAdmin, async (req, res) => {
       const query = { email: req.params.email };
       const result = await userCollection.findOne(query);
       res.send(result);
