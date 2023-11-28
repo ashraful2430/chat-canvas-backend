@@ -4,6 +4,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const app = express();
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -28,9 +29,16 @@ async function run() {
     // await client.db("admin").command({ ping: 1 });
 
     const userCollection = client.db("forumDb").collection("users");
+    const paymentCollection = client.db("forumDb").collection("payments");
     const postCollection = client.db("forumDb").collection("posts");
+    const adminReportCollection = client
+      .db("forumDb")
+      .collection("adminReport");
     const commentCollection = client.db("forumDb").collection("comments");
     const reportCollection = client.db("forumDb").collection("reports");
+    const announcementCollection = client
+      .db("forumDb")
+      .collection("announcement");
 
     // middleware verify token
     const verifyToken = (req, res, next) => {
@@ -40,7 +48,7 @@ async function run() {
       const token = req.headers.authorization.split(" ")[1];
       jwt.verify(token, process.env.ACCESS_SECRET_TOKEN, (err, decoded) => {
         if (err) {
-          return res.status(401).send({ message: "Forbidden access" });
+          return res.status(401).send({ message: "forbidden access" });
         }
         req.decoded = decoded;
         next();
@@ -59,6 +67,12 @@ async function run() {
       next();
     };
 
+    // admin report
+    app.post("/admin-report", verifyToken, verifyAdmin, async (req, res) => {
+      const info = req.body;
+      const result = await adminReportCollection.insertOne(info);
+      res.send(result);
+    });
     // forum stat related api
     app.get("/forum-stats", verifyToken, verifyAdmin, async (req, res) => {
       const postCount = await postCollection.estimatedDocumentCount();
@@ -72,7 +86,25 @@ async function run() {
       });
     });
 
+    // announcement related api
+    app.post("/announcement", verifyToken, verifyAdmin, async (req, res) => {
+      const details = req.body;
+      const result = await announcementCollection.insertOne(details);
+      res.send(result);
+    });
+
+    app.get("/announcement", async (req, res) => {
+      const result = await announcementCollection.find().toArray();
+      res.send(result);
+    });
+
     // report comments related api
+
+    app.get("/report", async (req, res) => {
+      const result = await reportCollection.find().toArray();
+      res.send(result);
+    });
+
     app.post("/report", verifyToken, async (req, res) => {
       const report = req.body;
       const result = await reportCollection.insertOne(report);
@@ -265,24 +297,19 @@ async function run() {
       res.send(result);
     });
 
-    app.get(
-      "/users/admin/:email",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
-        const email = req.params.email;
-        if (email !== req.decoded.email) {
-          return res.status(403).send({ message: "Unauthorized access" });
-        }
-        const query = { email: email };
-        const user = await userCollection.findOne(query);
-        let admin = false;
-        if (user) {
-          admin = user?.role === "admin";
-        }
-        res.send({ admin });
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "Unauthorized access" });
       }
-    );
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
 
     app.patch(
       "/users/admin/:id",
@@ -301,7 +328,7 @@ async function run() {
       }
     );
 
-    app.get("/users/:email", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users/:email", async (req, res) => {
       const query = { email: req.params.email };
       const result = await userCollection.findOne(query);
       res.send(result);
@@ -316,6 +343,33 @@ async function run() {
       }
       const result = await userCollection.insertOne(user);
       res.send(result);
+    });
+
+    // payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+
+      const userId = payment.userId;
+      const newBadge = "Gold";
+      const userUpdateResult = await userCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        { $set: { badge: newBadge } }
+      );
+      res.send({ paymentResult, userUpdateResult });
     });
 
     // connected to mongodb
