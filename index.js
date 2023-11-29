@@ -293,7 +293,11 @@ async function run() {
 
     //   user related api
     app.get("/users", verifyToken, async (req, res) => {
-      const result = await userCollection.find().toArray();
+      const filter = req.query;
+      const query = {
+        name: { $regex: filter.search, $options: "i" },
+      };
+      const result = await userCollection.find(query).toArray();
       res.send(result);
     });
 
