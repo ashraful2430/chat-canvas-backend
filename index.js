@@ -113,8 +113,18 @@ async function run() {
     // report comments related api
 
     app.get("/report", async (req, res) => {
-      const result = await reportCollection.find().toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+      const result = await reportCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
       res.send(result);
+    });
+    app.get("/report-count", async (req, res) => {
+      const count = await reportCollection.estimatedDocumentCount();
+      res.send({ count });
     });
 
     app.post("/report", verifyToken, async (req, res) => {
@@ -306,10 +316,16 @@ async function run() {
     //   user related api
     app.get("/users", verifyToken, async (req, res) => {
       const filter = req.query;
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
       const query = {
         name: { $regex: filter.search, $options: "i" },
       };
-      const result = await userCollection.find(query).toArray();
+      const result = await userCollection
+        .find(query)
+        .skip(page * size)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
 
@@ -348,6 +364,11 @@ async function run() {
       const query = { email: req.params.email };
       const result = await userCollection.findOne(query);
       res.send(result);
+    });
+
+    app.get("/users-count", async (req, res) => {
+      const count = await userCollection.estimatedDocumentCount();
+      res.send({ count });
     });
 
     app.post("/users", async (req, res) => {
