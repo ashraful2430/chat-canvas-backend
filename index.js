@@ -86,6 +86,18 @@ async function run() {
       });
     });
 
+    app.get("/chart-stats", async (req, res) => {
+      const postCount = await postCollection.estimatedDocumentCount();
+      const userCount = await userCollection.estimatedDocumentCount();
+      const commentCount = await commentCollection.estimatedDocumentCount();
+      const statArray = [
+        { category: "post", quantity: postCount },
+        { category: "user", quantity: userCount },
+        { category: "comment", quantity: commentCount },
+      ];
+      res.send(statArray);
+    });
+
     // announcement related api
     app.post("/announcement", verifyToken, verifyAdmin, async (req, res) => {
       const details = req.body;
