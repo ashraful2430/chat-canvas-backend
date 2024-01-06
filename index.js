@@ -230,6 +230,26 @@ async function run() {
       res.send({ count });
     });
 
+    app.patch("/posts/upvote-down/:id", verifyToken, async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const update = {
+        $inc: { upVote: -1 },
+      };
+      const result = await postCollection.updateOne(filter, update);
+      res.send(result);
+    });
+    app.patch("/posts/downvote-down/:id", verifyToken, async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const update = {
+        $inc: { downVote: -1 },
+      };
+      const result = await postCollection.updateOne(filter, update);
+      res.send(result);
+    });
     app.patch("/posts/upvote/:id", verifyToken, async (req, res) => {
       const item = req.body;
       const id = req.params.id;
