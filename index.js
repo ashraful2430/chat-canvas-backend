@@ -110,6 +110,18 @@ async function run() {
       res.send(result);
     });
 
+    app.delete(
+      "/announcement/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await announcementCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
+
     // report comments related api
 
     app.get("/report", async (req, res) => {
